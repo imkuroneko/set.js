@@ -9,15 +9,23 @@ const script = () => new cron.CronJob(
     '0 2 * * *',
     async function() {
         try {
-            // volver a 0
-            for (let i = 1; i <= 9; i++) {
-                console.log(`init...`, new Date());
+            const url = "https://www.set.gov.py/web/portal-institucional/listado-de-ruc-con-sus-equivalencias";
 
-                const fileUrl = `https://www.set.gov.py/rest/contents/download/collaboration/sites/PARAGUAY-SET/documents/informes-periodicos/ruc/ruc${i}.zip`;
-                await axios({ url: fileUrl, method: 'GET', responseType: 'arraybuffer' }).then(async (response) => {
+            const response = await axios.get(url);
+            const html = response.data;
+
+            const $ = cheerio.load(html);
+
+            let i = 0;
+            $('div.list__item a.link').each(async (index, element) => {
+                const href = $(element).attr('href');
+
+                const webUrl = `https://www.set.gov.py${href}`;
+
+                await axios({ url: webUrl, method: 'GET', responseType: 'arraybuffer' }).then(async (response) => {
 
                     // Guardar el archivo descargado en /temp
-                    await fs.writeFileSync(path.resolve(`./temp/ruc${i}.zip`), response.data);
+                    fs.writeFileSync(path.resolve(`./temp/ruc${i}.zip`), response.data);
 
                     // Descomprimir el archivo y guardar todo en la carpeta /temp
                     const zip = new AdmZip(path.resolve(`./temp/ruc${i}.zip`));
@@ -28,7 +36,7 @@ const script = () => new cron.CronJob(
 
                     // Abrir el archivo de base de datos
                     const sql = new SQLite(path.resolve('./data/ruc.sqlite'));
-
+    
                     // Leer el archivo txt
                     const fileContent = fs.readFileSync(path.resolve(`./temp/ruc${i}.txt`), 'utf-8');
                     const lines = fileContent.split('\n');
@@ -50,14 +58,11 @@ const script = () => new cron.CronJob(
                         }
                     });
 
-                    console.log(`terminado archivo ${i}...`, new Date());
-
                     // Eliminar el archivo txt (ya no nos sirve)
                     fs.unlinkSync(path.resolve(`./temp/ruc${i}.txt`));
                 });
-            }
-
-            console.log(`finish total...`, new Date());
+                i++;
+            });
         } catch(error) {
             console.error('[cronjob:set_update_info]', error);
         };
