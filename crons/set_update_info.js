@@ -1,5 +1,6 @@
 const cron = require('cron');
 const axios = require('axios');
+const cheerio = require('cheerio');
 const SQLite = require('better-sqlite3');
 const AdmZip = require('adm-zip');
 const fs = require('fs');
